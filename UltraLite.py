@@ -1,275 +1,130 @@
 """
-refinement_pipeline.py
+confidence_tagging.py
 
-Confidence-refinement pipeline for thermal human-detection.
+Plug-in module for the larger RubbleScan workflow.
 
-This module handles ONLY the data-processing/control-flow logic described in
-the workflow below. It does NOT implement, train, or approximate any
-classification model. Wherever a model call is required, this module calls
-out to a pluggable interface (`ReevaluationModel`) that you supply. A
-`MockReevaluationModel` is included purely so the pipeline is runnable and
-testable before the real model exists — swap it out for your trained model
-by implementing the same interface.
+Takes the confidence levels produced by your detection model for a single
+frame (one confidence value per detected heat signature), and works
+through EACH one exactly once via a for-loop:
 
-Workflow implemented:
-    1. Take a thermal image + a list of raw per-human detections
-       (bbox + initial confidence) for that frame.
-    2. Sort detections ascending by confidence.
-    3. Any detection at/above HIGH_CONFIDENCE_THRESHOLD is immediately
-       pinged as "Potential human detected, high confidence" and removed
-       from the working list.
-    4. For everything remaining (still ascending by confidence), take the
-       lowest-confidence item first:
-         a. Crop ("zoom into") the image using that detection's bbox.
-         b. Re-evaluate confidence for that crop via the pluggable model.
-         c. Compute percentage change between original and re-evaluated
-            confidence.
-         d. If the percentage change >= REEVALUATION_CHANGE_THRESHOLD,
-            ping "Potential human detected, high confidence" and remove
-            the item.
-         e. Otherwise, discard the item as unconfirmed and remove it.
-    5. Repeat step 4 until the working list is empty.
-    6. Signal that the pipeline is ready for a new frame.
+    - If a signature's confidence is already >= HIGH_CONFIDENCE_THRESHOLD,
+      it is tagged immediately: "Potential human detected, high confidence".
+    - Otherwise, its region is zoomed/cropped and re-evaluated (via your
+      real model, plugged in through `reevaluate_confidence`). If the
+      percentage change from the re-evaluation clears
+      REEVALUATION_CHANGE_THRESHOLD, it is tagged the same way.
+    - If neither condition is met, it is left untagged (logged as
+      "not confirmed").
 
-Integration note:
-    This module expects to receive detections in the same shape your
-    upstream detector/model already produces (id, bbox, confidence).
-    It does not read images from disk/network itself beyond cropping
-    a bbox region for the re-evaluation step — wire that up to your
-    actual image object type as needed (see `image_cropper` below).
+No items are ever deleted/removed from the input list. Every signature
+in the input is visited once and ends up with a tag or a not-confirmed
+status. Sorting ascending by confidence only affects processing ORDER,
+not membership in the list.
+
+INTEGRATION POINTS (marked below with # >>> INTEGRATE):
+  1. `signatures` — replace the example data with the real output from
+     your detection model for the current frame.
+  2. `reevaluate_confidence()` — replace the manual-input placeholder
+     with a call to your trained re-evaluation model.
+  3. `crop_region()` — replace with your actual image-cropping call
+     (PIL/numpy/etc.) once you're passing real image + bbox data.
 """
 
-from __future__ import annotations
-
-from dataclasses import dataclass, field
-from typing import Callable, List, Optional, Protocol, Sequence
+# ---------------------------------------------------------------------------
+# Tunable thresholds
+# ---------------------------------------------------------------------------
+HIGH_CONFIDENCE_THRESHOLD = 0.6        # immediate-tag cutoff
+REEVALUATION_CHANGE_THRESHOLD = 0.2    # 20% relative change required to tag
 
 
 # ---------------------------------------------------------------------------
-# Tunable thresholds — adjust once your model's real confidence distribution
-# is known. These are just sane placeholder defaults.
+# >>> INTEGRATE (1): confidence levels for each heat signature in this frame.
+# Replace this example list with the real output from your detection model,
+# e.g. signatures = model.get_detections(frame)
+# Each entry: (signature_id, confidence, bbox)
 # ---------------------------------------------------------------------------
-
-HIGH_CONFIDENCE_THRESHOLD: float = 0.85       # immediate-accept cutoff
-REEVALUATION_CHANGE_THRESHOLD: float = 0.20   # 20% relative change required
-
-
-# ---------------------------------------------------------------------------
-# Data structures
-# ---------------------------------------------------------------------------
-
-BBox = tuple  # (x1, y1, x2, y2) in image pixel coordinates
+signatures = [
+    ("sig-1", 0.91, (10, 10, 60, 90)),
+    ("sig-2", 0.30, (120, 40, 170, 130)),
+    ("sig-3", 0.42, (200, 60, 250, 150)),
+    ("sig-4", 0.15, (260, 80, 310, 170)),
+]
 
 
-@dataclass
-class Detection:
-    """A single candidate human heat signature within one frame."""
-    id: str
-    bbox: BBox
-    confidence: float
-    frame_id: Optional[str] = None
-    meta: dict = field(default_factory=dict)
-
-
-@dataclass
-class PingResult:
-    """A confirmed 'potential human' output emitted by the pipeline."""
-    detection_id: str
-    bbox: BBox
-    original_confidence: float
-    final_confidence: float
-    stage: str  # "immediate_accept" or "reevaluated_accept"
-    message: str = "Potential human detected, high confidence"
-
-
-@dataclass
-class DiscardResult:
-    """A detection that was processed but did not clear the bar."""
-    detection_id: str
-    bbox: BBox
-    original_confidence: float
-    final_confidence: float
-    percent_change: float
-
-
-@dataclass
-class FrameProcessingLog:
-    """Full audit trail for one frame's run through the pipeline."""
-    pings: List[PingResult] = field(default_factory=list)
-    discards: List[DiscardResult] = field(default_factory=list)
-    frame_complete: bool = False
-
-
-# ---------------------------------------------------------------------------
-# Pluggable model interface — DO NOT implement the model itself here.
-# Your trained classifier should be wrapped to satisfy this Protocol.
-# ---------------------------------------------------------------------------
-
-class ReevaluationModel(Protocol):
+def crop_region(image, bbox):
     """
-    Interface your real, trained model should satisfy.
-
-    `reevaluate` takes a cropped image region (whatever type your image
-    pipeline uses — e.g. a PIL.Image, numpy array, tensor) and returns a
-    single float confidence in [0, 1] that the crop contains a human.
+    >>> INTEGRATE (3): replace with real cropping logic for your image type.
+    e.g. PIL:    return image.crop(bbox)
+         numpy:  x1, y1, x2, y2 = bbox; return image[y1:y2, x1:x2]
+    For now this just passes bbox through, since no real image is wired in.
     """
-
-    def reevaluate(self, cropped_region) -> float:
-        ...
+    return bbox
 
 
-class MockReevaluationModel:
+def reevaluate_confidence(signature_id, cropped_region):
     """
-    Placeholder ONLY, so this module can run/be tested before your real
-    model is wired in. Replace with your actual trained model — this
-    class intentionally contains no real classification logic.
+    >>> INTEGRATE (2): replace with a call to your trained model, e.g.
+        return your_model.predict(cropped_region)
+
+    Placeholder below just prompts you for a number so you can manually
+    test the workflow before the real model is ready.
     """
-
-    def reevaluate(self, cropped_region) -> float:
-        raise NotImplementedError(
-            "MockReevaluationModel is a placeholder. Wire in your trained "
-            "confidence-classification model here via the ReevaluationModel "
-            "interface — this pipeline does not implement or train that model."
-        )
-
-
-# ImageCropper: given a full frame image + a bbox, return whatever
-# "cropped region" object your ReevaluationModel expects. Swap this
-# out for your actual image library's crop call.
-ImageCropper = Callable[[object, BBox], object]
-
-
-def default_image_cropper(image, bbox: BBox):
-    """
-    Default cropper stub. Replace with real cropping logic for your image
-    type (e.g. PIL: image.crop(bbox); numpy: image[y1:y2, x1:x2]).
-    """
-    raise NotImplementedError(
-        "Provide an image_cropper function matching your image object type."
-    )
+    while True:
+        raw = input(
+            f"    Re-evaluate '{signature_id}' -> enter new confidence [0-1]: "
+        ).strip()
+        try:
+            value = float(raw)
+        except ValueError:
+            print("    Please enter a number between 0 and 1.")
+            continue
+        if 0.0 <= value <= 1.0:
+            return value
+        print("    Please enter a number between 0 and 1.")
 
 
-# ---------------------------------------------------------------------------
-# Core pipeline logic
-# ---------------------------------------------------------------------------
-
-def _percent_change(original: float, updated: float) -> float:
-    """
-    Relative percentage change from original to updated confidence.
-    Guards against divide-by-zero when original confidence is 0.
-    """
+def percent_change(original, updated):
     if original == 0:
         return float("inf") if updated > 0 else 0.0
     return abs(updated - original) / original
 
 
-def process_frame(
-    image,
-    detections: Sequence[Detection],
-    model: ReevaluationModel,
-    image_cropper: ImageCropper = default_image_cropper,
-    high_confidence_threshold: float = HIGH_CONFIDENCE_THRESHOLD,
-    reevaluation_change_threshold: float = REEVALUATION_CHANGE_THRESHOLD,
-) -> FrameProcessingLog:
+def process_signatures(image, signatures):
     """
-    Run the full ping/re-evaluate/discard workflow over one frame's
-    detections until the working list is empty.
-
-    Args:
-        image: the full thermal frame (whatever type your cropper expects).
-        detections: raw per-human detections for this frame (bbox + confidence).
-        model: your trained ReevaluationModel implementation. Required —
-               this function will not fabricate confidence values.
-        image_cropper: function to crop `image` to a detection's bbox.
-        high_confidence_threshold: immediate-accept cutoff (0-1).
-        reevaluation_change_threshold: required relative confidence swing
-               (0-1) after re-evaluation to accept a low-confidence detection.
-
-    Returns:
-        FrameProcessingLog with every ping and discard, in the order
-        they were processed. The working list is guaranteed empty when
-        this returns (every input detection is accounted for).
+    Works through every signature in the input exactly once, in ascending
+    confidence order. Nothing is removed from `signatures` — this just
+    controls processing order and produces a tag/no-tag result per item.
     """
-    log = FrameProcessingLog()
+    ordered = sorted(signatures, key=lambda s: s[1])  # ascending by confidence
 
-    # Step 2: sort ascending by confidence.
-    working_list: List[Detection] = sorted(detections, key=lambda d: d.confidence)
+    for signature_id, confidence, bbox in ordered:
 
-    # Step 3: immediate accept for anything already high-confidence.
-    remaining: List[Detection] = []
-    for det in working_list:
-        if det.confidence >= high_confidence_threshold:
-            log.pings.append(
-                PingResult(
-                    detection_id=det.id,
-                    bbox=det.bbox,
-                    original_confidence=det.confidence,
-                    final_confidence=det.confidence,
-                    stage="immediate_accept",
-                )
+        if confidence >= HIGH_CONFIDENCE_THRESHOLD:
+            print(
+                f"[TAG] {signature_id}: confidence {confidence:.2f} >= "
+                f"{HIGH_CONFIDENCE_THRESHOLD:.2f} -> "
+                f"Potential human detected, high confidence"
+            )
+            continue
+
+        print(f"[ZOOM] {signature_id}: re-evaluating (original confidence {confidence:.2f})...")
+        cropped = crop_region(image, bbox)
+        updated_confidence = reevaluate_confidence(signature_id, cropped)
+        change = percent_change(confidence, updated_confidence)
+        print(f"       new confidence={updated_confidence:.2f}, change={change * 100:.1f}%")
+
+        if change >= REEVALUATION_CHANGE_THRESHOLD:
+            print(
+                f"[TAG] {signature_id}: change >= "
+                f"{REEVALUATION_CHANGE_THRESHOLD * 100:.0f}% -> "
+                f"Potential human detected, high confidence"
             )
         else:
-            remaining.append(det)
+            print(f"[NOT CONFIRMED] {signature_id}: change below threshold")
 
-    # remaining is still ascending-confidence order since working_list was sorted.
+        print()
 
-    # Step 4: work through the remaining list, lowest confidence first,
-    # zooming + re-evaluating each one until the list is empty.
-    for det in remaining:
-        cropped_region = image_cropper(image, det.bbox)
-        updated_confidence = model.reevaluate(cropped_region)
-
-        change = _percent_change(det.confidence, updated_confidence)
-
-        if change >= reevaluation_change_threshold:
-            log.pings.append(
-                PingResult(
-                    detection_id=det.id,
-                    bbox=det.bbox,
-                    original_confidence=det.confidence,
-                    final_confidence=updated_confidence,
-                    stage="reevaluated_accept",
-                )
-            )
-        else:
-            log.discards.append(
-                DiscardResult(
-                    detection_id=det.id,
-                    bbox=det.bbox,
-                    original_confidence=det.confidence,
-                    final_confidence=updated_confidence,
-                    percent_change=change,
-                )
-            )
-        # Item is now removed from the working list by virtue of not being
-        # carried forward — no further reprocessing occurs for this item.
-
-    log.frame_complete = True
-    return log
-
-
-def request_new_frame() -> str:
-    """
-    Called once a frame's working list is empty. Hook this up to your
-    actual frame-acquisition source (camera feed, next file in queue, etc.).
-    This stub just signals readiness.
-    """
-    return "READY_FOR_NEXT_FRAME"
-
-
-# ---------------------------------------------------------------------------
-# Example usage (illustrative only — requires a real model + cropper)
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    example_detections = [
-        Detection(id="det-1", bbox=(10, 10, 60, 90), confidence=0.91),
-        Detection(id="det-2", bbox=(120, 40, 170, 130), confidence=0.42),
-        Detection(id="det-3", bbox=(200, 60, 250, 150), confidence=0.30),
-    ]
-
-    print("This module defines the pipeline but requires a real")
-    print("ReevaluationModel + image_cropper to actually run process_frame().")
-    print(f"Example working list (sorted ascending) would be:")
-    for d in sorted(example_detections, key=lambda d: d.confidence):
-        print(f"  {d.id}: confidence={d.confidence}")
+    # >>> INTEGRATE: replace `image=None` with your actual frame object.
+    process_signatures(image=None, signatures=signatures)
