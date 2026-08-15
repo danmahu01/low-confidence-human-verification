@@ -47,7 +47,9 @@ def model_path() -> Path:
 
 
 def model_available() -> bool:
-    return model_path().exists()
+    # is_file(), not exists(): a .pt is a zip internally, so an unpacked one
+    # leaves a *directory* at this path and exists() would wrongly say yes.
+    return model_path().is_file()
 
 
 def get_model():
@@ -55,7 +57,14 @@ def get_model():
     global _model, _model_path
 
     path = model_path()
-    if not path.exists():
+    if path.is_dir():
+        raise ApiError(
+            f"{path} is a directory, not a weights file. A .pt file is a zip "
+            "archive internally, so it looks like this one was extracted. "
+            "Point YOLO_MODEL_PATH at the original .pt file.",
+            status=503,
+        )
+    if not path.is_file():
         raise ApiError(
             f"YOLO weights not found at {path}. Set YOLO_MODEL_PATH in .env "
             "or drop your .pt file there.",

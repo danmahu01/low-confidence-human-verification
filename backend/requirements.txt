@@ -6,3 +6,7 @@ python-dotenv>=1.0
 # If you already have torch set up (CUDA build, conda env), install ultralytics
 # on its own instead of using this file.
 ultralytics>=8.3
+
+# Required by model.track() for video. Ultralytics pip-installs this on first
+# use if it's missing, which you do not want happening inside a request.
+lap>=0.5.12
