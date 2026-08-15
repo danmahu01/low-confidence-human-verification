@@ -1,7 +1,7 @@
 from flask import Blueprint, current_app, jsonify, request, send_from_directory
 from werkzeug.datastructures import FileStorage
 
-from .. import detection, storage, store
+from .. import confidence, detection, storage, store
 from ..errors import ApiError
 
 bp = Blueprint("upload", __name__)
@@ -36,6 +36,10 @@ def upload():
     # Inference runs inline, so a long video holds the request open.
     # Move this to a worker if clips get big.
     detections = detection.detect(path, stored.kind, stored.id)
+
+    # Walk them lowest-confidence first, re-scoring the uncertain ones.
+    confidence.apply(detections, stored.id)
+
     people = [d.to_dict() for d in detections]
 
     store.save_analysis(stored.to_dict(), people)

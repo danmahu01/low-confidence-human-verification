@@ -1,0 +1,45 @@
+# TrackTrack tuned to KEEP low-confidence detections.
+#
+# Ultralytics' default (tracktrack.yaml) is built for clean tracks: it needs a
+# score of 0.7 to start a track at all, so uncertain people never get an id and
+# vanish from video results entirely. This app exists to surface exactly those
+# people for human review, so the thresholds are dropped below the detector's
+# own floor (YOLO_MIN_CONFIDENCE) and let that setting be the real gate.
+#
+# Trade-off: more false tracks and more id switches. That is the right side to
+# err on here — a spurious box costs a reviewer two seconds, a missed person
+# costs the whole point of the system.
+
+tracker_type: tracktrack
+
+# Was 0.6 / 0.25 / 0.7. Anything the detector emits is now eligible.
+track_high_thresh: 0.10
+track_low_thresh: 0.05
+new_track_thresh: 0.10
+
+track_buffer: 30
+match_thresh: 0.7
+lost_match_thr: 0.0
+
+# Association weights (unchanged from the default)
+iou_weight: 0.5
+reid_weight: 0.5
+conf_weight: 0.1
+angle_weight: 0.05
+
+# Iterative assignment
+penalty_p: 0.2
+penalty_q: 0.4
+reduce_step: 0.05
+
+# Track-Aware Initialization.
+# min_track_len was 3, meaning a person had to appear in 3 *sampled* frames
+# before being confirmed — with VIDEO_FRAME_STRIDE that can be most of a clip,
+# and short clips confirmed nobody at all. 1 confirms on first sight.
+tai_thr: 0.55
+min_track_len: 1
+
+gmc_method: sparseOptFlow
+
+with_reid: False
+model: auto

@@ -20,9 +20,24 @@ class Config:
     # Analyse every Nth video frame. Higher is faster and coarser.
     VIDEO_FRAME_STRIDE = int(os.getenv("VIDEO_FRAME_STRIDE", "15"))
 
+    # Tracker config for video. Ultralytics' defaults refuse to start a track
+    # below 0.7 confidence, which drops the very people this app is looking
+    # for. Set to "botsort.yaml"/"tracktrack.yaml" to use stock behaviour.
+    TRACKER_CONFIG = os.getenv("TRACKER_CONFIG", "app/trackers/lowconf.yaml")
+
     # Confidence gate: at or above this, a detection is trusted and gets low
     # review priority. Below it, a human should look.
     CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.85"))
+
+    # Re-evaluation loop (confidence_loop.py). Distinct from the gate above:
+    # anything over REEVAL_CONF_THRESHOLD is flagged outright, anything under
+    # gets cropped and re-scored, and is flagged if confidence jumps by more
+    # than REEVAL_DELTA_PCT.
+    REEVAL_ENABLED = os.getenv("REEVAL_ENABLED", "true").lower() != "false"
+    REEVAL_CONF_THRESHOLD = float(os.getenv("REEVAL_CONF_THRESHOLD", "0.5"))
+    REEVAL_DELTA_PCT = float(os.getenv("REEVAL_DELTA_PCT", "20"))
+    # "relative" = percent change; "points" = percentage-point change.
+    REEVAL_DELTA_MODE = os.getenv("REEVAL_DELTA_MODE", "relative")
 
     # Storage
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data.db")

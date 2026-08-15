@@ -218,6 +218,37 @@ button.link {
   font-size: 0.75rem;
 }
 
+/* Verdict from the re-evaluation loop */
+.status {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.status-flagged_high_confidence {
+  background: color-mix(in srgb, #14713d 18%, transparent);
+}
+
+.status-flagged_reeval_jump {
+  background: color-mix(in srgb, #8a5300 22%, transparent);
+}
+
+.status-not_confirmed {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: var(--muted);
+}
+
+.status-delta {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
 /* Results page — table (unused by default, kept for a list view) */
 .results {
   width: 100%;

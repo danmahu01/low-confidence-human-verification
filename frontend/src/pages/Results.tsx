@@ -3,7 +3,12 @@ import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import BoundingBox, { useMediaMetrics } from '../components/BoundingBox';
-import { PRIORITY_ORDER, type PeopleResponse, type Person } from '../types';
+import {
+  PRIORITY_ORDER,
+  STATUS_LABEL,
+  type PeopleResponse,
+  type Person,
+} from '../types';
 
 export default function Results() {
   const [data, setData] = useState<PeopleResponse | null>(null);
@@ -121,6 +126,18 @@ export default function Results() {
                       {person.priority}
                     </span>
                   </div>
+
+                  {person.status && (
+                    <div className={`status status-${person.status}`}>
+                      {STATUS_LABEL[person.status]}
+                      {person.delta_pct !== null && (
+                        <span className='status-delta'>
+                          {person.delta_pct > 0 ? '+' : ''}
+                          {person.delta_pct.toFixed(0)}%
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   <div className='card-meta muted'>
                     {person.label}

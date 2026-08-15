@@ -36,6 +36,10 @@ class Detection:
     crop_url: str | None = None
     # Video only — where in the clip this frame sits, for seeking.
     time_seconds: float | None = None
+    # Filled in by the confidence re-evaluation loop.
+    status: str | None = None
+    reeval_confidence: float | None = None
+    delta_pct: float | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -204,13 +208,25 @@ def detect(path: Path, kind: str, upload_id: str) -> list[Detection]:
 
     stride = cfg["VIDEO_FRAME_STRIDE"]
 
+    # A bare name like "botsort.yaml" is resolved by ultralytics itself; our
+    # own file needs an absolute path.
+    tracker = Path(cfg["TRACKER_CONFIG"])
+    if not tracker.is_absolute() and tracker.parent != Path("."):
+        tracker = Path(current_app.root_path).parent / tracker
+        if not tracker.exists():
+            raise ApiError(f"Tracker config not found at {tracker}.", status=503)
+
     # Video: track() keeps an id per person across frames, so one person
     # walking through the clip is one row rather than one row per frame.
     results = model.track(
         source=str(path),
         stream=True,
-        persist=True,
-        vid_stride=cfg["VIDEO_FRAME_STRIDE"],
+        # False resets tracker state at the start of each call. The model is
+        # cached across requests, so persisting would carry track ids from a
+        # previous upload into this one.
+        persist=False,
+        vid_stride=stride,
+        tracker=str(tracker),
         **common,
     )
 

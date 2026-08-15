@@ -16,6 +16,18 @@ export const PRIORITY_ORDER: Record<Priority, number> = {
   low: 2,
 };
 
+/** Verdicts from confidence_loop.tag_detections. */
+export type TagStatus =
+  | 'flagged_high_confidence'
+  | 'flagged_reeval_jump'
+  | 'not_confirmed';
+
+export const STATUS_LABEL: Record<TagStatus, string> = {
+  flagged_high_confidence: 'confident',
+  flagged_reeval_jump: 'rescued',
+  not_confirmed: 'unconfirmed',
+};
+
 /** One YOLO detection. */
 export interface Person {
   id: string;
@@ -34,6 +46,12 @@ export interface Person {
   crop_url: string | null;
   /** Video only — position in the clip, for seeking to this detection. */
   time_seconds: number | null;
+  /** Verdict from the confidence re-evaluation loop. */
+  status: TagStatus | null;
+  /** Confidence after re-scoring the crop; null if it was never re-evaluated. */
+  reeval_confidence: number | null;
+  /** Percent change from original to re-evaluated confidence. */
+  delta_pct: number | null;
 }
 
 /** Returned by POST /api/upload. */
