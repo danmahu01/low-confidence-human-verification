@@ -30,6 +30,10 @@ export interface Person {
   frame: number | null;
   /** Video only — stable id for one person across frames. */
   track_id: number | null;
+  /** Thumbnail cropped from the frame this detection came from. */
+  crop_url: string | null;
+  /** Video only — position in the clip, for seeking to this detection. */
+  time_seconds: number | null;
 }
 
 /** Returned by POST /api/upload. */

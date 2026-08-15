@@ -39,6 +39,13 @@ def upload_dir() -> Path:
     return path
 
 
+def crops_dir(upload_id: str) -> Path:
+    """Where per-detection thumbnails for one upload live."""
+    path = upload_dir() / "crops" / upload_id
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def extension_of(filename: str) -> str:
     return Path(filename).suffix.lower().lstrip(".")
 

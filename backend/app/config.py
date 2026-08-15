@@ -8,8 +8,6 @@ load_dotenv()
 class Config:
     """Base config. Values come from the environment; see .env.example."""
 
-    SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
-
     # YOLO model
     YOLO_MODEL_PATH = os.getenv("YOLO_MODEL_PATH", "models/best.pt")
     # "cpu", "0" for the first CUDA device, "mps" on Apple silicon.

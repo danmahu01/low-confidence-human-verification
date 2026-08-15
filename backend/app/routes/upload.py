@@ -35,7 +35,7 @@ def upload():
 
     # Inference runs inline, so a long video holds the request open.
     # Move this to a worker if clips get big.
-    detections = detection.detect(path, stored.kind)
+    detections = detection.detect(path, stored.kind, stored.id)
     people = [d.to_dict() for d in detections]
 
     store.save_analysis(stored.to_dict(), people)
@@ -57,6 +57,16 @@ def download(upload_id: str):
 
     # conditional=True enables range requests, which video players need to seek.
     return send_from_directory(directory, matches[0].name, conditional=True)
+
+
+@bp.get("/upload/<upload_id>/crops/<filename>")
+def crop(upload_id: str, filename: str):
+    """Serve one detection thumbnail."""
+    if not upload_id.isalnum():
+        raise ApiError("Invalid upload id.", status=400)
+
+    # send_from_directory rejects traversal in `filename` itself.
+    return send_from_directory(storage.crops_dir(upload_id), filename)
 
 
 @bp.get("/upload/limits")

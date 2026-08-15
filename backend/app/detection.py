@@ -33,9 +33,38 @@ class Detection:
     bbox: list[float]  # [x1, y1, x2, y2] in pixels
     frame: int | None = None
     track_id: int | None = None
+    crop_url: str | None = None
+    # Video only — where in the clip this frame sits, for seeking.
+    time_seconds: float | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+# Extra context to include around a detection's box, as a fraction of its size.
+CROP_PADDING = 0.12
+
+
+def _save_crop(image, detection: Detection, out_dir: Path) -> str | None:
+    """Cut this detection out of the frame it appeared in. Returns the filename."""
+    import cv2
+
+    height, width = image.shape[:2]
+    x1, y1, x2, y2 = detection.bbox
+    pad_x = (x2 - x1) * CROP_PADDING
+    pad_y = (y2 - y1) * CROP_PADDING
+
+    x1 = max(0, int(x1 - pad_x))
+    y1 = max(0, int(y1 - pad_y))
+    x2 = min(width, int(x2 + pad_x))
+    y2 = min(height, int(y2 + pad_y))
+
+    if x2 <= x1 or y2 <= y1:
+        return None
+
+    name = f"{detection.id}.jpg"
+    cv2.imwrite(str(out_dir / name), image[y1:y2, x1:x2])
+    return name
 
 
 def model_path() -> Path:
@@ -131,11 +160,24 @@ def _to_detection(box, names, frame: int | None, threshold: float) -> Detection:
     )
 
 
-def detect(path: Path, kind: str) -> list[Detection]:
-    """Run inference over an image or video and return detections."""
+def detect(path: Path, kind: str, upload_id: str) -> list[Detection]:
+    """Run inference over an image or video and return detections.
+
+    Each detection is also cropped out of the frame it was found in, so the
+    review UI can show the person rather than the whole scene.
+    """
+    from . import storage
+
     model = get_model()
     cfg = current_app.config
     threshold = cfg["CONFIDENCE_THRESHOLD"]
+    out_dir = storage.crops_dir(upload_id)
+
+    def finish(detection: Detection, image) -> Detection:
+        name = _save_crop(image, detection, out_dir)
+        if name:
+            detection.crop_url = f"/api/upload/{upload_id}/crops/{name}"
+        return detection
 
     common = {
         "conf": cfg["YOLO_MIN_CONFIDENCE"],
@@ -148,10 +190,19 @@ def detect(path: Path, kind: str) -> list[Detection]:
     if kind == "image":
         results = model.predict(source=str(path), **common)
         return [
-            _to_detection(box, model.names, None, threshold)
+            finish(_to_detection(box, model.names, None, threshold), result.orig_img)
             for result in results
             for box in result.boxes
         ]
+
+    # Frame rate lets us turn a frame index into a seek position.
+    import cv2
+
+    capture = cv2.VideoCapture(str(path))
+    fps = capture.get(cv2.CAP_PROP_FPS) or 0.0
+    capture.release()
+
+    stride = cfg["VIDEO_FRAME_STRIDE"]
 
     # Video: track() keeps an id per person across frames, so one person
     # walking through the clip is one row rather than one row per frame.
@@ -163,18 +214,26 @@ def detect(path: Path, kind: str) -> list[Detection]:
         **common,
     )
 
-    best: dict[int, Detection] = {}
+    # Hold the frame alongside the detection so the crop can be taken from the
+    # frame where that person looked clearest, not just the last one seen.
+    best: dict[int, tuple[Detection, object]] = {}
     untracked: list[Detection] = []
 
-    for frame_index, result in enumerate(results):
-        for box in result.boxes:
-            detection = _to_detection(box, model.names, frame_index, threshold)
-            if detection.track_id is None:
-                untracked.append(detection)
-            else:
-                # Keep the frame where we saw this person most clearly.
-                current = best.get(detection.track_id)
-                if current is None or detection.confidence > current.confidence:
-                    best[detection.track_id] = detection
+    for sample_index, result in enumerate(results):
+        # track() only yields sampled frames, so recover the real frame number.
+        frame_number = sample_index * stride
 
-    return list(best.values()) + untracked
+        for box in result.boxes:
+            detection = _to_detection(box, model.names, frame_number, threshold)
+            detection.time_seconds = round(frame_number / fps, 3) if fps else None
+
+            if detection.track_id is None:
+                untracked.append(finish(detection, result.orig_img))
+                continue
+
+            current = best.get(detection.track_id)
+            if current is None or detection.confidence > current[0].confidence:
+                # copy(): ultralytics may reuse the frame buffer downstream.
+                best[detection.track_id] = (detection, result.orig_img.copy())
+
+    return [finish(d, image) for d, image in best.values()] + untracked
