@@ -1,0 +1,8 @@
+flask>=3.1
+flask-cors>=5.0
+python-dotenv>=1.0
+
+# YOLO inference. Pulls in torch + opencv, so this is the slow one to install.
+# If you already have torch set up (CUDA build, conda env), install ultralytics
+# on its own instead of using this file.
+ultralytics>=8.3
