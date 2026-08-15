@@ -19,6 +19,10 @@ def people():
         entry = store.latest_analysis()
 
     if entry is None:
-        return jsonify(people=[], upload=None)
+        return jsonify(people=[], upload=None, verdict=None)
 
-    return jsonify(people=entry["people"], upload=entry["upload"])
+    return jsonify(
+        people=entry["people"],
+        upload=entry["upload"],
+        verdict=entry.get("verdict"),
+    )

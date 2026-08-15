@@ -40,6 +40,9 @@ class Detection:
     status: str | None = None
     reeval_confidence: float | None = None
     delta_pct: float | None = None
+    # Filled in by validation against ground truth.
+    matched: bool | None = None
+    iou: float | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)

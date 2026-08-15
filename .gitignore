@@ -218,3 +218,7 @@ __marimo__/
 .streamlit/secrets.toml
 
 models
+
+# The Python template's blanket lib/ rule above also matches frontend/src/lib/,
+# which is real source. Keep that one tracked.
+!frontend/src/lib/

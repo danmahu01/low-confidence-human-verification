@@ -39,6 +39,9 @@ class Config:
     # "relative" = percent change; "points" = percentage-point change.
     REEVAL_DELTA_MODE = os.getenv("REEVAL_DELTA_MODE", "relative")
 
+    # Minimum IoU for a prediction to count as matching a ground-truth box.
+    VALIDATION_IOU = float(os.getenv("VALIDATION_IOU", "0.5"))
+
     # Storage
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data.db")
 

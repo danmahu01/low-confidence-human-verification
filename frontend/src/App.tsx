@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from 'react-router-dom';
 
 import Capture from './pages/Capture';
 import Results from './pages/Results';
+import Validation from './pages/Validation';
 
 export default function App() {
   return (
@@ -11,6 +12,7 @@ export default function App() {
         <nav className='app-nav'>
           <NavLink to='/capture'>Upload</NavLink>
           <NavLink to='/result'>Results</NavLink>
+          <NavLink to='/validation'>Validation</NavLink>
         </nav>
       </header>
 
@@ -19,6 +21,7 @@ export default function App() {
           <Route path='/' element={<Capture />} />
           <Route path='/capture' element={<Capture />} />
           <Route path='/result' element={<Results />} />
+          <Route path='/validation' element={<Validation />} />
           <Route path='*' element={<p>Page not found.</p>} />
         </Routes>
       </main>
