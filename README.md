@@ -1,6 +1,6 @@
 # VITA
 
-Detecting a person in thermal imagery is a solved research problem — VITA's novelty is turning that detection into an operational triage signal, with confidence-based guidance and persistent tracking across video, rather than stopping at a bounding box. It's not a new detection method; it's the decision-support layer the underlying research (POP, published Feb 2025) never built.
+Detecting a person in thermal imagery is a solved research problem
 
 ## Problem
 
@@ -20,10 +20,10 @@ input ──▶ detector ──▶ confidence gate ──┬── ≥ threshold
 
 ## Demo
 
-| | |
-| --- | --- |
+|                                       |                                                                   |
+| ------------------------------------- | ----------------------------------------------------------------- |
 | 🎥 **[Demo video](VITAdemo_vid.mp4)** | VITA running end to end — upload, detection, review queue (18 MB) |
-| 📊 **[Slide deck](vita_slide.pptx)** | Project overview and approach (62 KB) |
+| 📊 **[Slide deck](vita_slide.pptx)**  | Project overview and approach (62 KB)                             |
 
 > GitHub will not play an `.mp4` inline from a repo file link — the link
 > downloads it. To get an embedded player, drag the file into a GitHub issue

@@ -1,15 +1,26 @@
 :root {
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
   line-height: 1.5;
-  color-scheme: light dark;
+  /* Dark-only, matching the reference build. */
+  color-scheme: dark;
 
-  --border: color-mix(in srgb, currentColor 20%, transparent);
-  --muted: color-mix(in srgb, currentColor 60%, transparent);
+  --bg: #0d1117;
+  --surface: #161b22;
+  --text: #e6edf3;
+  --muted: #8a8a8a;
+  --border: #30363d;
+
+  --accent: #00ff9d;
+  --accent-alt: #00b8ff;
+
+  --mono: 'Courier New', ui-monospace, monospace;
 }
 
 body {
   margin: 0;
   padding: 2rem 1rem;
+  background: var(--bg);
+  color: var(--text);
 }
 
 .app {
@@ -20,29 +31,55 @@ body {
 .app-header {
   border-bottom: 1px solid var(--border);
   margin-bottom: 2rem;
+  text-align: center;
 }
 
 .app-header h1 {
-  font-size: 1.25rem;
-  margin: 0 0 0.5rem;
+  font-family: var(--mono);
+  font-size: 2.5rem;
+  letter-spacing: 4px;
+  margin: 0;
+  background: linear-gradient(90deg, var(--accent), var(--accent-alt));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.app-subtitle {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0.15rem 0 0;
 }
 
 .app-nav {
   display: flex;
-  gap: 1rem;
-  padding-bottom: 0.75rem;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1rem 0 0.75rem;
 }
 
 .app-nav a {
-  color: inherit;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
   text-decoration: none;
   padding-bottom: 0.25rem;
   border-bottom: 2px solid transparent;
 }
 
+.app-nav a:hover {
+  color: var(--text);
+}
+
 .app-nav a.active {
-  border-bottom-color: currentColor;
-  font-weight: 600;
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .muted {
@@ -50,7 +87,7 @@ body {
 }
 
 .error {
-  color: #b00020;
+  color: #ff6b6b;
 }
 
 button {
@@ -58,7 +95,7 @@ button {
   padding: 0.5rem 1rem;
   border: 1px solid var(--border);
   border-radius: 0.375rem;
-  background: transparent;
+  background: var(--surface);
   color: inherit;
   cursor: pointer;
 }
@@ -107,7 +144,10 @@ button.link {
 }
 
 .verdict-label {
+  font-family: var(--mono);
   font-size: 1.05rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .verdict-detail {
@@ -118,24 +158,34 @@ button.link {
   font-size: 0.78rem;
 }
 
+/* VITA locates people, so a confident find is the result you want — it gets
+   the accent, not an alarm colour. */
 .verdict-high {
-  border-color: #b00020;
-  background: color-mix(in srgb, #b00020 12%, transparent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.verdict-high .verdict-label {
+  color: var(--accent);
 }
 
 .verdict-possible {
-  border-color: #8a5300;
-  background: color-mix(in srgb, #8a5300 12%, transparent);
+  border-color: var(--accent-alt);
+  background: color-mix(in srgb, var(--accent-alt) 12%, transparent);
+}
+
+.verdict-possible .verdict-label {
+  color: var(--accent-alt);
 }
 
 .verdict-unlikely {
-  border-color: #14713d;
-  background: color-mix(in srgb, #14713d 10%, transparent);
+  border-color: #8a5300;
+  background: color-mix(in srgb, #ffa940 10%, transparent);
 }
 
 .verdict-none {
-  border-color: var(--muted);
-  background: color-mix(in srgb, currentColor 6%, transparent);
+  border-color: var(--border);
+  background: var(--surface);
 }
 
 /* Results page — main media */
@@ -203,7 +253,7 @@ button.link {
   width: 100%;
   max-height: 26rem;
   object-fit: contain;
-  background: color-mix(in srgb, currentColor 8%, transparent);
+  background: var(--surface);
   border-radius: 0.5rem;
 }
 
@@ -222,6 +272,7 @@ button.link {
 }
 
 .card {
+  background: var(--surface);
   flex: 0 0 8.5rem;
   scroll-snap-align: start;
   display: flex;
@@ -235,8 +286,8 @@ button.link {
 }
 
 .card.is-selected {
-  border-color: currentColor;
-  box-shadow: 0 0 0 1px currentColor;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .card-thumb-wrap {
@@ -249,7 +300,7 @@ button.link {
   height: 7rem;
   object-fit: cover;
   border-radius: 0.25rem;
-  background: color-mix(in srgb, currentColor 8%, transparent);
+  background: var(--surface);
 }
 
 .zoom-btn {
@@ -381,7 +432,7 @@ button.link {
   width: 100%;
   max-height: 22rem;
   object-fit: contain;
-  background: color-mix(in srgb, currentColor 8%, transparent);
+  background: var(--surface);
   border-radius: 0.375rem;
 }
 
@@ -459,15 +510,17 @@ button.link {
 }
 
 .status-flagged_high_confidence {
-  background: color-mix(in srgb, #14713d 18%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
 }
 
 .status-flagged_reeval_jump {
-  background: color-mix(in srgb, #8a5300 22%, transparent);
+  background: color-mix(in srgb, var(--accent-alt) 16%, transparent);
+  color: var(--accent-alt);
 }
 
 .status-not_confirmed {
-  background: color-mix(in srgb, currentColor 10%, transparent);
+  background: var(--surface);
   color: var(--muted);
 }
 
@@ -506,13 +559,13 @@ button.link {
 }
 
 .badge-high {
-  color: #b00020;
+  color: #ff6b6b;
 }
 
 .badge-medium {
-  color: #8a5300;
+  color: #ffa940;
 }
 
 .badge-low {
-  color: #14713d;
+  color: #52c41a;
 }

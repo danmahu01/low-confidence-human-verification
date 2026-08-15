@@ -9,6 +9,7 @@ export default function App() {
     <div className='app'>
       <header className='app-header'>
         <h1>VITA</h1>
+        <p className='app-subtitle'>Victim Identification &amp; Triage Assistant</p>
         <nav className='app-nav'>
           <NavLink to='/capture'>Upload</NavLink>
           <NavLink to='/result'>Results</NavLink>
