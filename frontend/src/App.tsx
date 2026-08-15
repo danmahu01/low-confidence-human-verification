@@ -8,7 +8,7 @@ export default function App() {
   return (
     <div className='app'>
       <header className='app-header'>
-        <h1>Human Verification Queue</h1>
+        <h1>VITA</h1>
         <nav className='app-nav'>
           <NavLink to='/capture'>Upload</NavLink>
           <NavLink to='/result'>Results</NavLink>
