@@ -1,7 +1,7 @@
 from flask import Blueprint, current_app, jsonify, request, send_from_directory
 from werkzeug.datastructures import FileStorage
 
-from .. import confidence, detection, storage, store
+from .. import confidence, detection, storage, store, verdict as verdict_module
 from ..errors import ApiError
 
 bp = Blueprint("upload", __name__)
@@ -41,10 +41,11 @@ def upload():
     confidence.apply(detections, stored.id)
 
     people = [d.to_dict() for d in detections]
+    verdict = verdict_module.summarise(detections).to_dict()
 
-    store.save_analysis(stored.to_dict(), people)
+    store.save_analysis(stored.to_dict(), people, verdict)
 
-    return jsonify(upload=stored.to_dict(), people=people), 201
+    return jsonify(upload=stored.to_dict(), people=people, verdict=verdict), 201
 
 
 @bp.get("/upload/<upload_id>/file")

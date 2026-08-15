@@ -24,7 +24,7 @@ export type TagStatus =
 
 export const STATUS_LABEL: Record<TagStatus, string> = {
   flagged_high_confidence: 'confident',
-  flagged_reeval_jump: 'rescued',
+  flagged_reeval_jump: 'confirmed on zoom',
   not_confirmed: 'unconfirmed',
 };
 
@@ -52,6 +52,10 @@ export interface Person {
   reeval_confidence: number | null;
   /** Percent change from original to re-evaluated confidence. */
   delta_pct: number | null;
+  /** Validation only — whether this prediction matched a ground-truth box. */
+  matched?: boolean | null;
+  /** Validation only — IoU with the box it matched. */
+  iou?: number | null;
 }
 
 /** Returned by POST /api/upload. */
@@ -67,9 +71,53 @@ export interface StoredUpload {
 export interface UploadResponse {
   upload: StoredUpload;
   people: Person[];
+  verdict: Verdict;
+}
+
+/** Overall answer for one upload. */
+export type VerdictLevel = 'high' | 'possible' | 'unlikely' | 'none';
+
+export interface Verdict {
+  level: VerdictLevel;
+  /** e.g. "High probability of human presence" */
+  label: string;
+  detail: string;
+  total: number;
+  confident: number;
+  rescued: number;
+  unconfirmed: number;
+  max_confidence: number | null;
 }
 
 export interface PeopleResponse {
   people: Person[];
   upload: StoredUpload | null;
+  verdict: Verdict | null;
+}
+
+/** One box from the ground-truth label file. */
+export interface GroundTruthBox {
+  id: string;
+  class_id: number;
+  label: string;
+  bbox: [number, number, number, number];
+  /** True if some prediction matched it; false means the model missed it. */
+  matched: boolean;
+}
+
+export interface ValidationMetrics {
+  true_positives: number;
+  false_positives: number;
+  false_negatives: number;
+  precision: number;
+  recall: number;
+  f1: number;
+  iou_threshold: number;
+}
+
+export interface ValidationResponse {
+  upload: StoredUpload;
+  metrics: ValidationMetrics;
+  predictions: Person[];
+  ground_truth: GroundTruthBox[];
 }

@@ -15,8 +15,8 @@ _analyses: OrderedDict[str, dict] = OrderedDict()
 MAX_ENTRIES = 50
 
 
-def save_analysis(upload: dict, people: list[dict]) -> dict:
-    entry = {"upload": upload, "people": people}
+def save_analysis(upload: dict, people: list[dict], verdict: dict | None = None) -> dict:
+    entry = {"upload": upload, "people": people, "verdict": verdict}
     with _lock:
         _analyses[upload["id"]] = entry
         while len(_analyses) > MAX_ENTRIES:
